@@ -69,6 +69,10 @@
   const shuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const sample = (a, n) => shuffle(a).slice(0, n);
   const LV = { 1: '기초 700', 2: '중급 800', 3: '고급 900+' };
+  const ic = (name, cls = '') => `<svg class="i ${cls}" aria-hidden="true"><use href="#ic-${name}"/></svg>`;
+  const CAT_ICON = { hr: 'briefcase', office: 'building', marketing: 'trending', finance: 'coins', legal: 'scale', logistics: 'package', travel: 'plane', facility: 'wrench', service: 'bag', media: 'megaphone', advanced: 'award', collocation: 'link' };
+  const KO_DAYS = ['일', '월', '화', '수', '목', '금', '토'];
+  function todayLabel() { const d = new Date(); return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 ${KO_DAYS[d.getDay()]}요일`; }
   function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 1800); }
   function speak(text) {
     if (!('speechSynthesis' in window)) return;
@@ -89,11 +93,11 @@
   function markExample(w, mode) { // mode: 'bold' | 'blank'
     const re = wordRegex(w.w); const m = w.ex.match(re);
     if (!m) return esc(w.ex);
-    const rep = mode === 'blank' ? '<span class="blank">______</span>' : '<b>' + esc(m[0]) + '</b>';
+    const rep = mode === 'blank' ? '<span class="blank">&nbsp;</span>' : '<span class="mark">' + esc(m[0]) + '</span>';
     return esc(w.ex.slice(0, m.index)) + rep + esc(w.ex.slice(m.index + m[0].length));
   }
-  function levelBadge(lv) { return `<span class="badge lv${lv}">${LV[lv]}</span>`; }
-  function speakBtn(text) { return `<button class="speak" data-speak="${esc(text)}" title="발음 듣기">🔊 발음</button>`; }
+  function levelBadge(lv) { return `<span class="tag"><span class="dot lv${lv}"></span>${LV[lv]}</span>`; }
+  function speakBtn(text, label = '발음') { return `<button class="speak" data-speak="${esc(text)}" title="발음 듣기">${ic('volume')}${label}</button>`; }
 
   // ---------- 라우터 ----------
   let keyHandler = null;
@@ -115,63 +119,61 @@
     const learned = WORDS.filter(w => isLearned(w.id)).length;
     const mastered = WORDS.filter(w => isMastered(w.id)).length;
     const due = WORDS.filter(w => isDue(w.id)).length;
+    const weak = WORDS.filter(w => isWeak(w.id)).length;
     const todayLog = S.log[today()] || { studied: 0, correct: 0, wrong: 0 };
     const goalPct = Math.min(100, Math.round(todayLog.studied / S.goal * 100));
     const nextDay = DAYS.findIndex(ids => ids.some(id => !isLearned(id)));
-    const readiness = readinessScore();
+    const dayIdx = nextDay < 0 ? DAYS.length - 1 : nextDay;
+    const r = readinessScore();
+    const yesterday = S.log[addDays(today(), -1)];
+    const cmp = yesterday ? `${todayLog.studied - yesterday.studied >= 0 ? '+' : ''}${todayLog.studied - yesterday.studied} vs 어제` : '어제 기록 없음';
     render(`
-      <div class="hero mb">
-        <h1>토익 900점, 단어로 시작하세요</h1>
-        <p class="muted">빈출 어휘 ${WORDS.length.toLocaleString()}개를 ${DAYS.length}일 커리큘럼과 간격 반복(SRS)으로 완성합니다.</p>
-        <div class="row mt">
-          ${due ? `<a class="btn btn-lg" href="#/study/due">🔁 복습 ${due}개</a>` : ''}
-          <a class="btn btn-lg" href="#/day/${nextDay < 0 ? 0 : nextDay}">📚 Day ${nextDay < 0 ? DAYS.length : nextDay + 1} 학습</a>
-          <a class="btn btn-lg" href="#/quiz">🎯 퀴즈</a>
+      <div class="page-head enter">
+        <div><h1>${todayLabel()}</h1><p class="sub">${due ? `복습 ${due}개가 기다리고 있습니다` : nextDay < 0 ? '모든 Day를 한 번씩 학습했습니다' : `Day ${nextDay + 1}부터 이어서 학습합니다`}</p></div>
+        <div class="btn-row">
+          ${due ? `<a class="btn btn-primary btn-lg" href="#/study/due">${ic('repeat')}복습 ${due}개</a><a class="btn btn-lg" href="#/day/${dayIdx}">Day ${dayIdx + 1} 학습</a>`
+                : `<a class="btn btn-primary btn-lg" href="#/study/day/${dayIdx}">${ic('layers')}Day ${dayIdx + 1} 학습</a><a class="btn btn-lg" href="#/quiz">퀴즈</a>`}
         </div>
       </div>
       <div class="grid grid-4 mb">
-        <div class="card stat"><div class="num">${todayLog.studied}</div><div class="lbl">오늘 학습 / 목표 ${S.goal}</div><div class="progress mt" style="margin-top:8px"><span style="width:${goalPct}%"></span></div></div>
-        <div class="card stat"><div class="num">${S.streak}</div><div class="lbl">연속 학습일 🔥</div></div>
-        <div class="card stat"><div class="num">${learned}</div><div class="lbl">학습한 단어</div></div>
-        <div class="card stat"><div class="num" style="color:var(--success)">${mastered}</div><div class="lbl">마스터한 단어</div></div>
+        <div class="card stat"><div class="lbl">오늘 학습</div><div class="val accent">${todayLog.studied}<span class="muted" style="font-size:15px"> / ${S.goal}</span></div><div class="progress mt" style="margin-top:8px"><span style="width:${goalPct}%"></span></div></div>
+        <div class="card stat"><div class="lbl">연속 학습일</div><div class="val">${S.streak}<span class="muted" style="font-size:15px"> 일</span></div><div class="cmp">${cmp}</div></div>
+        <div class="card stat"><div class="lbl">학습한 단어</div><div class="val">${learned.toLocaleString()}</div><div class="cmp">전체 ${WORDS.length.toLocaleString()}</div></div>
+        <div class="card stat"><div class="lbl">마스터</div><div class="val">${mastered.toLocaleString()}</div><div class="cmp">5단계 이상 도달</div></div>
       </div>
-      <div class="grid grid-2 mb">
+      <div class="grid grid-main mb">
         <div class="card">
-          <h2>900점 준비도</h2>
-          <div class="gauge">${gaugeSvg(readiness.score)}
-            <div><p><b>${readiness.score}%</b> ${readiness.msg}</p>
-              <p class="small muted">기초 ${readiness.lv[1]}% · 중급 ${readiness.lv[2]}% · 고급 ${readiness.lv[3]}%</p>
-              <p class="small muted">레벨별 마스터 비율에 가중치(기초 30 · 중급 35 · 고급 35)를 둔 지표입니다.</p></div>
+          <div class="row spread mb"><h2>${DAYS.length}일 커리큘럼</h2><span class="meta">하루 ${DAY_SIZE}단어 · 기초에서 고급 순</span></div>
+          <div class="day-grid">${DAYS.map((ids, i) => {
+            const done = ids.filter(id => isLearned(id)).length; const pct = Math.round(done / ids.length * 100);
+            return `<a class="day-tile ${pct === 100 ? 'done' : ''} ${i === nextDay ? 'today' : ''}" href="#/day/${i}"><div class="d">Day ${i + 1}</div><div class="c">${LV[BY_ID[ids[0]].lv].split(' ')[0]} · ${done}/${ids.length}</div><div class="mini"><span style="width:${pct}%"></span></div></a>`;
+          }).join('')}</div>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <h2 class="mb-sm">900점 준비도</h2>
+            <div class="gauge">${gaugeSvg(r.score)}<div><p class="sec small">${r.msg}</p>
+              <div class="lvrow mt">${[1, 2, 3].map(l => `<span class="sec">${LV[l]}</span><div class="progress quiet"><span style="width:${r.lv[l]}%"></span></div><span class="n">${r.lv[l]}%</span>`).join('')}</div></div></div>
+          </div>
+          <div class="card" style="padding:8px">
+            <a class="link-row" href="#/study/due"><span class="l">${ic('repeat')}복습 예정</span><span class="meta">${due}</span></a>
+            <a class="link-row" href="#/study/weak"><span class="l">${ic('alert')}자주 틀리는 단어</span><span class="meta">${weak}</span></a>
+            <a class="link-row" href="#/study/starred"><span class="l">${ic('star')}즐겨찾기</span><span class="meta">${Object.keys(S.starred).length}</span></a>
+            <a class="link-row" href="#/quiz/blank"><span class="l">${ic('pen')}빈칸 채우기 퀴즈</span><span class="meta">Part 5</span></a>
           </div>
         </div>
-        <div class="card">
-          <h2>오늘의 추천 학습</h2>
-          <div class="stack">
-            <a class="btn" href="#/study/due">🔁 복습 예정 단어 ${due}개</a>
-            <a class="btn" href="#/study/weak">⚠️ 자주 틀리는 단어 ${WORDS.filter(w => isWeak(w.id)).length}개</a>
-            <a class="btn" href="#/study/starred">⭐ 즐겨찾기 ${Object.keys(S.starred).length}개</a>
-            <a class="btn" href="#/quiz/blank">✍️ 빈칸 채우기 퀴즈 (Part 5 대비)</a>
-          </div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="row spread"><h2>${DAYS.length}일 커리큘럼</h2><span class="small muted">하루 ${DAY_SIZE}단어 · 기초 → 고급 순</span></div>
-        <div class="day-grid mt">${DAYS.map((ids, i) => {
-          const done = ids.filter(id => isLearned(id)).length; const pct = Math.round(done / ids.length * 100);
-          return `<a class="day-tile ${pct === 100 ? 'done' : ''} ${i === nextDay ? 'today' : ''}" href="#/day/${i}"><div class="d">Day ${i + 1}</div><div class="c">${LV[BY_ID[ids[0]].lv].split(' ')[0]} · ${done}/${ids.length}</div><div class="mini"><span style="width:${pct}%"></span></div></a>`;
-        }).join('')}</div>
       </div>`);
   }
   function readinessScore() {
     const lv = {};
     [1, 2, 3].forEach(l => { const ws = WORDS.filter(w => w.lv === l); lv[l] = Math.round(ws.filter(w => isMastered(w.id)).length / ws.length * 100); });
     const score = Math.round(lv[1] * 0.3 + lv[2] * 0.35 + lv[3] * 0.35);
-    const msg = score >= 90 ? '900점 어휘 완성 단계입니다!' : score >= 70 ? '고득점 어휘가 안정되고 있습니다.' : score >= 40 ? '중급 어휘를 다지는 단계입니다.' : score > 0 ? '기초를 쌓는 단계입니다. 매일 꾸준히!' : '아직 시작 전입니다. Day 1부터 시작하세요.';
+    const msg = score >= 90 ? '900점 어휘가 완성 단계에 있습니다' : score >= 70 ? '고득점 어휘가 안정되고 있습니다' : score >= 40 ? '중급 어휘를 다지는 단계입니다' : score > 0 ? '기초를 쌓는 단계입니다' : '레벨별 마스터 비율로 계산합니다. Day 1부터 시작하세요';
     return { score, lv, msg };
   }
   function gaugeSvg(pct) {
     const r = 48, c = 2 * Math.PI * r, off = c * (1 - pct / 100);
-    return `<svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="${r}" fill="none" stroke="var(--surface-2)" stroke-width="12"/><circle cx="60" cy="60" r="${r}" fill="none" stroke="var(--primary)" stroke-width="12" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${off}" transform="rotate(-90 60 60)"/><text x="60" y="66" text-anchor="middle" font-size="22" font-weight="800" fill="var(--text)">${pct}%</text></svg>`;
+    return `<svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="${r}" fill="none" stroke="var(--raised)" stroke-width="8"/><circle cx="60" cy="60" r="${r}" fill="none" stroke="var(--accent)" stroke-width="8" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${off}" transform="rotate(-90 60 60)"/><text x="60" y="68" text-anchor="middle" font-family="var(--serif)" font-size="30" fill="var(--text)">${pct}<tspan font-size="14" fill="var(--muted)">%</tspan></text></svg>`;
   }
 
   // ---------- Day / 카테고리 상세 ----------
@@ -180,11 +182,11 @@
     const ids = DAYS[i];
     const done = ids.filter(id => isLearned(id)).length;
     render(`
-      <div class="row spread mb"><h1>Day ${i + 1} <span class="muted small">${done}/${ids.length} 학습</span></h1>
-        <div class="row">${i > 0 ? `<a class="btn btn-sm" href="#/day/${i - 1}">← Day ${i}</a>` : ''}${i < DAYS.length - 1 ? `<a class="btn btn-sm" href="#/day/${i + 1}">Day ${i + 2} →</a>` : ''}</div></div>
-      <div class="row mb">
-        <a class="btn btn-primary" href="#/study/day/${i}">🃏 플래시카드로 학습</a>
-        <a class="btn" href="#/quiz/mixed/day/${i}">🎯 이 Day 퀴즈</a>
+      <div class="page-head"><div><h1>Day ${i + 1}</h1><p class="sub">${LV[BY_ID[ids[0]].lv]} · ${done}/${ids.length} 학습</p></div>
+        <div class="btn-row">${i > 0 ? `<a class="btn btn-sm" href="#/day/${i - 1}">${ic('arrow-left')}Day ${i}</a>` : ''}${i < DAYS.length - 1 ? `<a class="btn btn-sm" href="#/day/${i + 1}">Day ${i + 2}${ic('arrow-right')}</a>` : ''}</div></div>
+      <div class="btn-row mb">
+        <a class="btn btn-primary" href="#/study/day/${i}">${ic('layers')}플래시카드로 학습</a>
+        <a class="btn" href="#/quiz/mixed/day/${i}">${ic('target')}이 Day 퀴즈</a>
       </div>
       ${wordList(ids)}`);
   }
@@ -192,11 +194,11 @@
     const cat = CATS[k]; if (!cat) return home();
     const ids = WORDS.filter(w => w.cat === k).map(w => w.id);
     render(`
-      <h1>${cat.icon} ${cat.name} <span class="muted small">${ids.length}단어</span></h1>
-      <div class="row mb mt">
-        <a class="btn btn-primary" href="#/study/cat/${k}">🃏 플래시카드</a>
-        <a class="btn" href="#/quiz/mixed/cat/${k}">🎯 카테고리 퀴즈</a>
-        <a class="btn btn-ghost" href="#/words">← 단어장</a>
+      <div class="page-head"><div><h1>${esc(cat.name)}</h1><p class="sub">${ids.length}단어 · 마스터 ${ids.filter(isMastered).length}</p></div>
+        <a class="btn btn-ghost btn-sm" href="#/words">${ic('arrow-left')}단어장</a></div>
+      <div class="btn-row mb">
+        <a class="btn btn-primary" href="#/study/cat/${k}">${ic('layers')}플래시카드</a>
+        <a class="btn" href="#/quiz/mixed/cat/${k}">${ic('target')}카테고리 퀴즈</a>
       </div>
       ${wordList(ids)}`);
   }
@@ -204,11 +206,11 @@
     if (!ids.length) return '<div class="empty">표시할 단어가 없습니다.</div>';
     return `<div class="wlist">${ids.map(id => {
       const w = BY_ID[id], c = card(id);
-      const st = isMastered(id) ? '<span class="badge ok">마스터</span>' : isWeak(id) ? '<span class="badge bad">취약</span>' : c.seen ? `<span class="badge warn">학습중 ${c.box}/${MASTER_BOX}</span>` : '<span class="badge">미학습</span>';
-      return `<div class="witem"><div class="head"><span class="w">${esc(w.w)}</span><span class="badge pos">${esc(w.p)}</span><span class="m">${esc(w.k)}</span>${levelBadge(w.lv)}${st}
-        <button class="star ${S.starred[id] ? 'on' : ''}" data-star="${id}" title="즐겨찾기">★</button></div>
-        <div class="small muted">≒ ${esc(w.syn)}</div>
-        <div class="ex">${markExample(w, 'bold')} ${speakBtn(w.ex)}</div></div>`;
+      const st = isMastered(id) ? '<span class="tag ok">마스터</span>' : isWeak(id) ? '<span class="tag bad">취약</span>' : c.seen ? `<span class="tag">${c.box}/${MASTER_BOX}단계</span>` : '';
+      return `<div class="witem"><div class="head"><span class="w">${esc(w.w)}</span><span class="tag pos">${esc(w.p)}</span><span class="m">${esc(w.k)}</span>${levelBadge(w.lv)}${st}
+        <button class="star ${S.starred[id] ? 'on' : ''}" data-star="${id}" title="즐겨찾기" aria-label="즐겨찾기">${ic('star')}</button></div>
+        <div class="syn">${esc(w.syn)}</div>
+        <div class="ex">${markExample(w, 'bold')}${speakBtn(w.ex, '')}</div></div>`;
     }).join('')}</div>`;
   }
 
@@ -224,59 +226,58 @@
     else if (mode === 'cat') ids = WORDS.filter(w => w.cat === arg).map(w => w.id);
     else if (mode === 'new') ids = WORDS.filter(w => !isLearned(w.id)).map(w => w.id).slice(0, 30);
     else ids = null;
-    const titles = { due: '복습 예정 단어', weak: '자주 틀리는 단어', starred: '즐겨찾기', day: `Day ${parseInt(arg, 10) + 1}`, cat: CATS[arg] ? CATS[arg].icon + ' ' + CATS[arg].name : '', new: '새 단어 30개' };
+    const titles = { due: '복습 예정 단어', weak: '자주 틀리는 단어', starred: '즐겨찾기', day: `Day ${parseInt(arg, 10) + 1}`, cat: CATS[arg] ? CATS[arg].name : '', new: '새 단어 30개' };
     return { ids, title: titles[mode] || '' };
   }
   function study(args) {
     const set = pickSet(args);
     if (!set.ids) return studyMenu();
-    if (!set.ids.length) return render(`<div class="empty"><h2>${esc(set.title)}</h2><p>학습할 단어가 없습니다.</p><a class="btn btn-primary mt" href="#/study">다른 학습 선택</a></div>`);
+    if (!set.ids.length) return render(`<div class="empty"><h2>${esc(set.title)}</h2><p class="mt">학습할 단어가 없습니다</p><a class="btn btn-primary mt" href="#/study">다른 학습 선택</a></div>`);
     runFlash(shuffle(set.ids), set.title);
   }
   function studyMenu() {
     const due = WORDS.filter(w => isDue(w.id)).length, weak = WORDS.filter(w => isWeak(w.id)).length, fresh = WORDS.filter(w => !isLearned(w.id)).length;
     render(`
-      <h1>플래시카드 학습</h1>
-      <p class="muted">카드를 뒤집어 뜻을 확인하고, 아는 단어는 <b>알아요</b>, 모르는 단어는 <b>몰라요</b>를 누르세요. 간격 반복(SRS)이 복습 시점을 자동으로 잡아 줍니다.</p>
-      <div class="grid grid-3 mt mb">
-        <a class="card cat-tile" href="#/study/due"><span class="ic">🔁</span><div><div class="nm">복습 예정</div><div class="ct">${due}개</div></div></a>
-        <a class="card cat-tile" href="#/study/new"><span class="ic">🆕</span><div><div class="nm">새 단어 30개</div><div class="ct">미학습 ${fresh}개 중</div></div></a>
-        <a class="card cat-tile" href="#/study/weak"><span class="ic">⚠️</span><div><div class="nm">취약 단어</div><div class="ct">${weak}개</div></div></a>
-        <a class="card cat-tile" href="#/study/starred"><span class="ic">⭐</span><div><div class="nm">즐겨찾기</div><div class="ct">${Object.keys(S.starred).length}개</div></div></a>
+      <div class="page-head"><div><h1>플래시카드</h1><p class="sub">카드를 뒤집어 뜻을 확인하고 알아요 또는 몰라요를 고르면, 간격 반복이 다음 복습 시점을 정합니다</p></div></div>
+      <div class="grid grid-4 mb">
+        <a class="cat-tile" href="#/study/due"><span class="ic">${ic('repeat', 'i-lg')}</span><div class="body"><div class="nm">복습 예정</div><div class="ct">${due}개</div></div></a>
+        <a class="cat-tile" href="#/study/new"><span class="ic">${ic('plus', 'i-lg')}</span><div class="body"><div class="nm">새 단어 30개</div><div class="ct">미학습 ${fresh}개 중</div></div></a>
+        <a class="cat-tile" href="#/study/weak"><span class="ic">${ic('alert', 'i-lg')}</span><div class="body"><div class="nm">취약 단어</div><div class="ct">${weak}개</div></div></a>
+        <a class="cat-tile" href="#/study/starred"><span class="ic">${ic('star', 'i-lg')}</span><div class="body"><div class="nm">즐겨찾기</div><div class="ct">${Object.keys(S.starred).length}개</div></div></a>
       </div>
-      <h2>카테고리별 학습</h2>
-      <div class="grid grid-3 mt">${catTiles('study')}</div>`);
+      <div class="section"><h2>카테고리별 학습</h2>
+      <div class="grid grid-3">${catTiles('study')}</div></div>`);
   }
   function catTiles(target) {
     return CAT_KEYS.map(k => {
       const ws = WORDS.filter(w => w.cat === k); const m = ws.filter(w => isMastered(w.id)).length;
       const href = target === 'study' ? `#/study/cat/${k}` : target === 'quiz' ? `#/quiz/mixed/cat/${k}` : `#/cat/${k}`;
-      return `<a class="cat-tile" href="${href}"><span class="ic">${CATS[k].icon}</span><div style="flex:1"><div class="nm">${CATS[k].name}</div><div class="ct">${ws.length}단어 · 마스터 ${m}</div><div class="progress success"><span style="width:${Math.round(m / ws.length * 100)}%"></span></div></div></a>`;
+      return `<a class="cat-tile" href="${href}"><span class="ic">${ic(CAT_ICON[k], 'i-lg')}</span><div class="body"><div class="nm">${CATS[k].name}</div><div class="ct">${ws.length}단어 · 마스터 ${m}</div><div class="progress quiet"><span style="width:${Math.round(m / ws.length * 100)}%"></span></div></div></a>`;
     }).join('');
   }
   function runFlash(queue, title) {
     let idx = 0, ok = 0, ng = 0, flipped = false; const total = queue.length; const again = [];
     function draw() {
       if (idx >= queue.length) {
-        if (again.length) { queue = shuffle(again.splice(0)); idx = 0; toast('틀린 단어를 다시 복습합니다'); }
+        if (again.length) { queue = shuffle(again.splice(0)); idx = 0; toast('몰랐던 단어를 다시 봅니다'); }
         else return finish();
       }
       const w = BY_ID[queue[idx]]; flipped = false;
       render(`
         <div class="flash-wrap">
-          <div class="row spread mb"><h2>${esc(title)}</h2><span class="muted">${Math.min(idx + 1, total)} / ${total}</span></div>
+          <div class="row spread mb"><h2>${esc(title)}</h2><span class="counter">${Math.min(idx + 1, total)} / ${total}</span></div>
           <div class="progress mb"><span style="width:${Math.round((ok + ng) / total * 100)}%"></span></div>
           <div class="flash" id="flash">
             <div class="flash-inner">
-              <div class="face front">${levelBadge(w.lv)}<div class="word">${esc(w.w)}</div><div class="pos">${esc(w.p)}</div>${speakBtn(w.w)}<div class="flash-hint">카드를 클릭하거나 <kbd>Space</kbd>로 뒤집기</div></div>
-              <div class="face back"><div class="word" style="font-size:1.5rem">${esc(w.w)} <span class="pos">${esc(w.p)}</span></div><div class="meaning">${esc(w.k)}</div><div class="syn">≒ ${esc(w.syn)}</div><div class="ex">${markExample(w, 'bold')}</div>${speakBtn(w.ex)}</div>
+              <div class="face front">${levelBadge(w.lv)}<div class="word mt">${esc(w.w)}</div><div class="pos">${esc(w.p)}</div>${speakBtn(w.w)}<div class="flash-hint">카드를 누르거나 <kbd>Space</kbd>로 뒤집기</div></div>
+              <div class="face back"><div class="word">${esc(w.w)} <span class="pos">${esc(w.p)}</span></div><div class="meaning">${esc(w.k)}</div><div class="syn">${esc(w.syn)}</div><div class="ex">${markExample(w, 'bold')}</div>${speakBtn(w.ex, '예문 듣기')}</div>
             </div>
           </div>
           <div class="flash-actions">
-            <button class="btn btn-danger" id="ng">✗ 몰라요 <kbd>1</kbd></button>
-            <button class="btn btn-success" id="ok">✓ 알아요 <kbd>2</kbd></button>
+            <button class="btn" id="ng">${ic('x')}몰라요 <kbd>1</kbd></button>
+            <button class="btn btn-primary" id="ok">${ic('check')}알아요 <kbd>2</kbd></button>
           </div>
-          <div class="row spread mt"><button class="btn btn-sm star-toggle ${S.starred[w.id] ? 'on' : ''}" data-star="${w.id}">${S.starred[w.id] ? '★ 즐겨찾기 해제' : '☆ 즐겨찾기'}</button><a class="btn btn-sm btn-ghost" href="#/study">종료</a></div>
+          <div class="row spread mt"><button class="btn btn-sm btn-ghost star-toggle ${S.starred[w.id] ? 'on' : ''}" data-star="${w.id}">${ic('star')}${S.starred[w.id] ? '즐겨찾기 해제' : '즐겨찾기'}</button><a class="btn btn-sm btn-ghost" href="#/study">종료</a></div>
         </div>`);
       if (S.settings.autoSpeak) speak(w.w);
       $('#flash').onclick = e => { if (e.target.closest('[data-speak]')) return; flip(); };
@@ -290,10 +291,10 @@
     }
     function finish() {
       const pct = Math.round(ok / Math.max(1, ok + ng) * 100);
-      render(`<div class="card" style="max-width:520px;margin:0 auto;text-align:center">
-        <h2>${esc(title)} 완료!</h2><div class="result-big">${pct}%</div>
-        <p class="muted">알아요 ${ok} · 몰라요 ${ng} (틀린 단어는 재복습 완료)</p>
-        <div class="row mt" style="justify-content:center"><a class="btn btn-primary" href="#/study">학습 메뉴</a><a class="btn" href="#/quiz">퀴즈로 확인</a><a class="btn btn-ghost" href="#/">홈</a></div></div>`);
+      render(`<div class="card result enter">
+        <h2 style="text-align:center">${esc(title)} 완료</h2><div class="big mt">${pct}<small>%</small></div>
+        <p class="sec mt" style="text-align:center">알아요 ${ok} · 몰라요 ${ng} · 몰랐던 단어는 다시 확인했습니다</p>
+        <div class="btn-row mt" style="justify-content:center"><a class="btn btn-primary" href="#/study">학습 메뉴</a><a class="btn" href="#/quiz">퀴즈로 확인</a><a class="btn btn-ghost" href="#/">홈</a></div></div>`);
       keyHandler = null;
     }
     keyHandler = e => {
@@ -308,12 +309,12 @@
 
   // ---------- 퀴즈 ----------
   const QUIZ_TYPES = {
-    e2k: { name: '영→한 뜻 고르기', desc: '영어 단어를 보고 알맞은 뜻 선택', icon: '🇬🇧' },
-    k2e: { name: '한→영 단어 고르기', desc: '뜻을 보고 알맞은 영어 단어 선택', icon: '🇰🇷' },
-    syn: { name: '동의어 고르기', desc: 'Part 7 동의어 문제 대비', icon: '🔄' },
-    blank: { name: '빈칸 채우기', desc: '예문의 빈칸에 알맞은 단어 선택 (Part 5 대비)', icon: '✍️' },
-    spell: { name: '스펠링 타이핑', desc: '뜻을 보고 단어를 직접 입력', icon: '⌨️' },
-    mixed: { name: '혼합 모드', desc: '모든 유형이 무작위로 출제', icon: '🎲' },
+    e2k: { name: '영어에서 한국어로', desc: '단어를 보고 뜻을 고릅니다', icon: 'type' },
+    k2e: { name: '한국어에서 영어로', desc: '뜻을 보고 단어를 고릅니다', icon: 'languages' },
+    syn: { name: '동의어 고르기', desc: 'Part 7 동의어 문제 대비', icon: 'repeat' },
+    blank: { name: '빈칸 채우기', desc: '예문의 빈칸에 맞는 단어, Part 5 대비', icon: 'pen' },
+    spell: { name: '스펠링 입력', desc: '뜻을 보고 단어를 직접 입력합니다', icon: 'keyboard' },
+    mixed: { name: '혼합', desc: '다섯 유형이 섞여서 나옵니다', icon: 'shuffle' },
   };
   function quiz(args) {
     const [type, scope, arg] = args;
@@ -325,17 +326,16 @@
     else if (scope === 'learned') pool = WORDS.filter(w => isLearned(w.id)).map(w => w.id);
     else if (scope === 'weak') pool = WORDS.filter(w => isWeak(w.id) || isDue(w.id)).map(w => w.id);
     else pool = WORDS.map(w => w.id);
-    if (pool.length < 4) return render(`<div class="empty"><p>퀴즈를 만들기에 단어가 부족합니다 (최소 4개).</p><a class="btn btn-primary" href="#/quiz">퀴즈 메뉴</a></div>`);
+    if (pool.length < 4) return render(`<div class="empty"><p>퀴즈를 만들려면 단어가 4개 이상 필요합니다</p><a class="btn btn-primary mt" href="#/quiz">퀴즈 메뉴</a></div>`);
     const n = Math.min(S.settings.quizCount, pool.length);
     const qs = sample(pool, n).map(id => makeQuestion(id, type === 'mixed' ? sample(Object.keys(QUIZ_TYPES).filter(t => t !== 'mixed'), 1)[0] : type, pool));
     runQuiz(qs, QUIZ_TYPES[type].name);
   }
   function quizMenu() {
     render(`
-      <h1>퀴즈</h1>
-      <p class="muted">유형과 범위를 선택하세요. 틀린 문제는 자동으로 복습 큐에 들어갑니다.</p>
-      <div class="card mb mt">
-        <div class="row">
+      <div class="page-head"><div><h1>퀴즈</h1><p class="sub">유형과 범위를 고르세요. 틀린 문제는 복습 목록에 들어갑니다</p></div></div>
+      <div class="card mb settings">
+        <div class="row" style="gap:16px">
           <label>문항 수
             <select id="qCount">${[10, 20, 30, 50].map(n => `<option ${S.settings.quizCount === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
           <label>범위
@@ -344,12 +344,12 @@
               <option value="learned">학습한 단어만</option>
               <option value="weak">복습 예정·취약 단어</option>
               <option value="lv/1">기초 700</option><option value="lv/2">중급 800</option><option value="lv/3">고급 900+</option>
-              ${CAT_KEYS.map(k => `<option value="cat/${k}">${CATS[k].icon} ${CATS[k].name}</option>`).join('')}
+              ${CAT_KEYS.map(k => `<option value="cat/${k}">${CATS[k].name}</option>`).join('')}
               ${DAYS.map((_, i) => `<option value="day/${i}">Day ${i + 1}</option>`).join('')}
             </select></label>
         </div>
       </div>
-      <div class="grid grid-3">${Object.entries(QUIZ_TYPES).map(([k, t]) => `<button class="cat-tile" data-quiz="${k}"><span class="ic">${t.icon}</span><div><div class="nm">${t.name}</div><div class="ct">${t.desc}</div></div></button>`).join('')}</div>`);
+      <div class="grid grid-3">${Object.entries(QUIZ_TYPES).map(([k, t]) => `<button class="cat-tile" data-quiz="${k}"><span class="ic">${ic(t.icon, 'i-lg')}</span><div class="body"><div class="nm">${t.name}</div><div class="ct" style="font-family:var(--sans);font-size:13px">${t.desc}</div></div></button>`).join('')}</div>`);
     $('#qCount').onchange = e => { S.settings.quizCount = parseInt(e.target.value, 10); save(); };
     document.querySelectorAll('[data-quiz]').forEach(b => b.onclick = () => {
       const scope = $('#qScope').value; location.hash = `#/quiz/${b.dataset.quiz}/${scope === 'all' ? '' : scope}`;
@@ -368,18 +368,18 @@
   }
   function makeQuestion(id, type, pool) {
     const w = BY_ID[id];
-    if (type === 'e2k') return { type, w, prompt: `<div class="q-prompt">${esc(w.w)} <span class="badge pos">${esc(w.p)}</span></div>`, answer: w.k, choices: shuffle([w.k, ...distractors(w, pool, 'k').map(x => x.k)]), speakText: w.w };
-    if (type === 'k2e') return { type, w, prompt: `<div class="q-prompt">${esc(w.k)} <span class="badge pos">${esc(w.p)}</span></div>`, answer: w.w, choices: shuffle([w.w, ...distractors(w, pool, 'w').map(x => x.w)]) };
+    if (type === 'e2k') return { type, w, prompt: `<div class="q-prompt"><div class="big">${esc(w.w)}</div><div class="pos">${esc(w.p)}</div></div>`, answer: w.k, choices: shuffle([w.k, ...distractors(w, pool, 'k').map(x => x.k)]), speakText: w.w };
+    if (type === 'k2e') return { type, w, prompt: `<div class="q-prompt"><div class="ko">${esc(w.k)}</div><div class="pos">${esc(w.p)}</div></div>`, answer: w.w, choices: shuffle([w.w, ...distractors(w, pool, 'w').map(x => x.w)]) };
     if (type === 'syn') {
       const synFirst = w.syn.split(/[,;]/)[0].trim();
-      return { type, w, prompt: `<div class="q-prompt"><span class="small muted" style="display:block;font-weight:500">다음 단어와 의미가 가장 가까운 것은?</span>${esc(w.w)}</div>`, answer: synFirst, choices: shuffle([synFirst, ...distractors(w, pool, 'syn').map(x => x.syn.split(/[,;]/)[0].trim())]) };
+      return { type, w, prompt: `<div class="q-prompt"><div class="lead">의미가 가장 가까운 단어</div><div class="big">${esc(w.w)}</div></div>`, answer: synFirst, choices: shuffle([synFirst, ...distractors(w, pool, 'syn').map(x => x.syn.split(/[,;]/)[0].trim())]) };
     }
     if (type === 'blank') {
       const re = wordRegex(w.w);
       if (!re.test(w.ex)) return makeQuestion(id, 'e2k', pool);
-      return { type, w, prompt: `<div class="q-prompt sentence">${markExample(w, 'blank')}</div><p class="muted small" style="text-align:center">힌트: ${esc(w.k)}</p>`, answer: w.w, choices: shuffle([w.w, ...distractors(w, pool, 'w').map(x => x.w)]) };
+      return { type, w, prompt: `<div class="q-prompt sentence"><div class="sent">${markExample(w, 'blank')}</div><div class="hint">힌트 · ${esc(w.k)}</div></div>`, answer: w.w, choices: shuffle([w.w, ...distractors(w, pool, 'w').map(x => x.w)]) };
     }
-    if (type === 'spell') return { type, w, prompt: `<div class="q-prompt">${esc(w.k)} <span class="badge pos">${esc(w.p)}</span></div><p class="muted small" style="text-align:center">≒ ${esc(w.syn)} · ${w.w.length}글자${w.w.includes(' ') ? ' (띄어쓰기 포함)' : ''}</p>`, answer: w.w, typing: true };
+    if (type === 'spell') return { type, w, prompt: `<div class="q-prompt"><div class="ko">${esc(w.k)}</div><div class="pos">${esc(w.p)}</div><div class="hint">${esc(w.syn)} · ${w.w.length}글자${w.w.includes(' ') ? ', 띄어쓰기 포함' : ''}</div></div>`, answer: w.w, typing: true };
     return makeQuestion(id, 'e2k', pool);
   }
   function runQuiz(qs, title) {
@@ -389,16 +389,16 @@
       const q = qs[i];
       render(`
         <div class="flash-wrap">
-          <div class="row spread mb"><h2>${esc(title)}</h2><span class="muted">${i + 1} / ${qs.length}</span></div>
+          <div class="row spread mb"><h2>${esc(title)}</h2><span class="counter">${i + 1} / ${qs.length}</span></div>
           <div class="progress mb"><span style="width:${Math.round(i / qs.length * 100)}%"></span></div>
           <div class="card">
             ${q.prompt}
             ${q.speakText ? `<div style="text-align:center">${speakBtn(q.speakText)}</div>` : ''}
-            ${q.typing ? `<form class="typing mt" id="typeForm"><input id="typeIn" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="영어 단어 입력 후 Enter"><button class="btn btn-primary">확인</button></form>`
-              : `<div class="choices mt">${q.choices.map((c, k) => `<button class="choice" data-c="${esc(c)}"><span class="k">${k + 1}</span><span>${esc(c)}</span></button>`).join('')}</div>`}
+            ${q.typing ? `<form class="typing" id="typeForm"><input id="typeIn" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="영어 단어"><button class="btn btn-primary btn-lg">확인</button></form>`
+              : `<div class="choices">${q.choices.map((c, k) => `<button class="choice" data-c="${esc(c)}"><kbd>${k + 1}</kbd><span>${esc(c)}</span></button>`).join('')}</div>`}
             <div id="explain"></div>
           </div>
-          <div class="row spread mt"><span class="small muted">${q.typing ? '' : '키보드 <kbd>1</kbd>~<kbd>4</kbd> 로 선택'}</span><a class="btn btn-sm btn-ghost" href="#/quiz">종료</a></div>
+          <div class="row spread mt"><span class="small muted">${q.typing ? '<kbd>Enter</kbd> 로 확인' : '<kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> 로 선택'}</span><a class="btn btn-sm btn-ghost" href="#/quiz">종료</a></div>
         </div>`);
       if (q.typing) { const inp = $('#typeIn'); inp.focus(); $('#typeForm').onsubmit = e => { e.preventDefault(); check(inp.value.trim()); }; }
       else document.querySelectorAll('.choice').forEach(b => b.onclick = () => check(b.dataset.c));
@@ -411,20 +411,21 @@
       if (correct) score++; else wrongs.push(q.w.id);
       document.querySelectorAll('.choice').forEach(b => { b.disabled = true; if (b.dataset.c === q.answer) b.classList.add('correct'); else if (b.dataset.c === ans && !correct) b.classList.add('wrong'); });
       if (q.typing) { const inp = $('#typeIn'); inp.disabled = true; inp.style.borderColor = correct ? 'var(--success)' : 'var(--danger)'; }
-      $('#explain').innerHTML = `<div class="explain"><b style="color:${correct ? 'var(--success)' : 'var(--danger)'}">${correct ? '정답! 🎉' : '오답 ✗ 정답: ' + esc(q.answer)}</b>
-        <div><b>${esc(q.w.w)}</b> <span class="badge pos">${esc(q.w.p)}</span> ${esc(q.w.k)} <span class="muted">≒ ${esc(q.w.syn)}</span></div>
+      $('#explain').innerHTML = `<div class="explain"><div class="verdict ${correct ? 'ok' : 'ng'}">${ic(correct ? 'check' : 'x')}${correct ? '정답' : '오답 · 정답은 ' + esc(q.answer)}</div>
+        <div class="w">${esc(q.w.w)} <span class="meta">${esc(q.w.p)}</span></div><div>${esc(q.w.k)} <span class="muted">· ${esc(q.w.syn)}</span></div>
         <div class="ex">${markExample(q.w, 'bold')}</div>
-        <div class="row mt">${speakBtn(q.w.w)}<button class="btn btn-primary" id="next" style="margin-left:auto">${i + 1 < qs.length ? '다음 →' : '결과 보기'} <kbd>Enter</kbd></button></div></div>`;
+        <div class="row spread mt">${speakBtn(q.w.w)}<button class="btn btn-primary" id="next">${i + 1 < qs.length ? '다음' : '결과 보기'} <kbd>Enter</kbd></button></div></div>`;
       $('#next').onclick = () => { i++; draw(); }; $('#next').focus();
     }
     function finish() {
       const pct = Math.round(score / qs.length * 100);
       S.quizHistory.unshift({ d: today(), t: title, s: score, n: qs.length }); S.quizHistory = S.quizHistory.slice(0, 50); save();
-      render(`<div class="card" style="max-width:600px;margin:0 auto">
-        <h2 style="text-align:center">${esc(title)} 결과</h2><div class="result-big">${pct}점</div>
-        <p class="muted" style="text-align:center">${qs.length}문제 중 ${score}개 정답${pct >= 90 ? ' · 훌륭합니다!' : pct >= 70 ? ' · 좋아요, 틀린 단어만 다시 보세요.' : ' · 틀린 단어를 플래시카드로 복습하세요.'}</p>
-        ${wrongs.length ? `<h3 class="mt">틀린 단어</h3>${wordList(wrongs)}` : ''}
-        <div class="row mt" style="justify-content:center"><a class="btn btn-primary" href="#/quiz">다른 퀴즈</a>${wrongs.length ? `<a class="btn" href="#/study/weak">취약 단어 복습</a>` : ''}<a class="btn btn-ghost" href="#/">홈</a></div></div>`);
+      const prev = S.quizHistory[1]; const cmpTxt = prev ? ` · 직전 퀴즈 ${Math.round(prev.s / prev.n * 100)}점` : '';
+      render(`<div class="card result enter">
+        <h2 style="text-align:center">${esc(title)} 결과</h2><div class="big mt">${pct}<small>점</small></div>
+        <p class="sec mt" style="text-align:center">${qs.length}문제 중 ${score}개 정답${cmpTxt}</p>
+        ${wrongs.length ? `<h3 class="mt-lg mb-sm">틀린 단어 ${wrongs.length}</h3>${wordList(wrongs)}` : ''}
+        <div class="btn-row mt-lg" style="justify-content:center"><a class="btn btn-primary" href="#/quiz">다른 퀴즈</a>${wrongs.length ? `<a class="btn" href="#/study/weak">취약 단어 복습</a>` : ''}<a class="btn btn-ghost" href="#/">홈</a></div></div>`);
       keyHandler = null;
     }
     keyHandler = e => {
@@ -439,11 +440,11 @@
   let wf = { q: '', cat: '', lv: '', st: '' };
   function words() {
     render(`
-      <h1>단어장 <span class="muted small">${WORDS.length.toLocaleString()}개</span></h1>
-      <div class="grid grid-3 mt mb">${catTiles('cat')}</div>
-      <div class="card">
+      <div class="page-head"><div><h1>단어장</h1><p class="sub">${WORDS.length.toLocaleString()}단어 · 12개 주제</p></div></div>
+      <div class="grid grid-3 mb">${catTiles('cat')}</div>
+      <div class="card section">
         <div class="filters">
-          <input id="fq" placeholder="단어·뜻·동의어 검색" value="${esc(wf.q)}">
+          <input id="fq" placeholder="검색" value="${esc(wf.q)}">
           <select id="fcat"><option value="">모든 카테고리</option>${CAT_KEYS.map(k => `<option value="${k}" ${wf.cat === k ? 'selected' : ''}>${CATS[k].name}</option>`).join('')}</select>
           <select id="flv"><option value="">모든 레벨</option>${[1, 2, 3].map(l => `<option value="${l}" ${wf.lv == l ? 'selected' : ''}>${LV[l]}</option>`).join('')}</select>
           <select id="fst"><option value="">모든 상태</option><option value="new" ${wf.st === 'new' ? 'selected' : ''}>미학습</option><option value="learning" ${wf.st === 'learning' ? 'selected' : ''}>학습중</option><option value="weak" ${wf.st === 'weak' ? 'selected' : ''}>취약</option><option value="mastered" ${wf.st === 'mastered' ? 'selected' : ''}>마스터</option><option value="starred" ${wf.st === 'starred' ? 'selected' : ''}>즐겨찾기</option></select>
@@ -461,7 +462,7 @@
       else if (wf.st === 'mastered') list = list.filter(w => isMastered(w.id));
       else if (wf.st === 'starred') list = list.filter(w => S.starred[w.id]);
       const shown = list.slice(0, 200);
-      $('#wres').innerHTML = `<p class="small muted">${list.length}개 결과${list.length > 200 ? ' (상위 200개 표시)' : ''}</p>${wordList(shown.map(w => w.id))}`;
+      $('#wres').innerHTML = `<p class="meta mb-sm">${list.length}개${list.length > 200 ? ' 중 200개 표시' : ''}</p>${wordList(shown.map(w => w.id))}`;
     }
   }
 
@@ -475,37 +476,36 @@
     const r = readinessScore();
     const upcoming = [0, 1, 2, 3, 4, 5, 6].map(d => { const dt = addDays(today(), d); return WORDS.filter(w => { const c = card(w.id); return c.seen && c.box < MASTER_BOX && c.due && (d === 0 ? c.due <= dt : c.due === dt); }).length; });
     render(`
-      <h1>학습 통계</h1>
-      <div class="grid grid-4 mt mb">
-        <div class="card stat"><div class="num">${seenAny}</div><div class="lbl">학습한 단어</div></div>
-        <div class="card stat"><div class="num" style="color:var(--success)">${boxes.slice(MASTER_BOX).reduce((a, b) => a + b, 0)}</div><div class="lbl">마스터</div></div>
-        <div class="card stat"><div class="num">${totalCorrect + totalWrong ? Math.round(totalCorrect / (totalCorrect + totalWrong) * 100) : 0}%</div><div class="lbl">누적 정답률</div></div>
-        <div class="card stat"><div class="num">${S.streak}</div><div class="lbl">연속 학습일</div></div>
+      <div class="page-head"><div><h1>학습 통계</h1><p class="sub">${Object.values(S.log).reduce((a, l) => a + l.studied, 0).toLocaleString()}회 학습 · 첫 학습 ${Object.keys(S.log).sort()[0] || '없음'}</p></div></div>
+      <div class="grid grid-4 mb">
+        <div class="card stat"><div class="lbl">학습한 단어</div><div class="val">${seenAny.toLocaleString()}</div><div class="cmp">전체 ${WORDS.length.toLocaleString()}</div></div>
+        <div class="card stat"><div class="lbl">마스터</div><div class="val accent">${boxes.slice(MASTER_BOX).reduce((a, b) => a + b, 0).toLocaleString()}</div><div class="cmp">5단계 이상</div></div>
+        <div class="card stat"><div class="lbl">누적 정답률</div><div class="val">${totalCorrect + totalWrong ? Math.round(totalCorrect / (totalCorrect + totalWrong) * 100) : 0}<span class="muted" style="font-size:15px">%</span></div><div class="cmp">${(totalCorrect + totalWrong).toLocaleString()}회 응답</div></div>
+        <div class="card stat"><div class="lbl">연속 학습일</div><div class="val">${S.streak}</div><div class="cmp">마지막 학습 ${S.lastStudy || '없음'}</div></div>
+      </div>
+      <div class="grid grid-main mb">
+        <div class="card"><h2 class="mb-sm">최근 6주</h2><p class="small muted mb">하루에 학습한 횟수. 짙을수록 많이 학습한 날입니다</p>
+          <div class="heat">${days.map(d => { const l = S.log[d]; const n = l ? l.studied : 0; return `<div class="${n >= 60 ? 'h3' : n >= 25 ? 'h2' : n > 0 ? 'h1' : ''}" title="${d}: ${n}회"></div>`; }).join('')}</div></div>
+        <div class="card"><h2 class="mb-sm">900점 준비도</h2><div class="gauge">${gaugeSvg(r.score)}<div><p class="sec small">${r.msg}</p>
+          <div class="lvrow mt">${[1, 2, 3].map(l => `<span class="sec">${LV[l]}</span><div class="progress quiet"><span style="width:${r.lv[l]}%"></span></div><span class="n">${r.lv[l]}%</span>`).join('')}</div></div></div></div>
       </div>
       <div class="grid grid-2 mb">
-        <div class="card"><h2>900점 준비도</h2><div class="gauge">${gaugeSvg(r.score)}<div><p>${r.msg}</p>
-          ${[1, 2, 3].map(l => `<div class="small muted">${LV[l]} <b>${r.lv[l]}%</b></div><div class="progress success" style="margin:2px 0 6px"><span style="width:${r.lv[l]}%"></span></div>`).join('')}</div></div></div>
-        <div class="card"><h2>학습 단계 분포</h2><p class="small muted">단계가 높을수록 복습 간격이 길어집니다 (5단계 이상 마스터).</p>
-          <div class="hbars">${['미학습', ...INTERVALS.map((_, i) => i + '단계')].map((lbl, i) => { const v = i === 0 ? unseen : boxes[i - 1]; const max = Math.max(1, unseen, ...boxes); return `<span class="lbl">${lbl}</span><div class="progress ${i > MASTER_BOX ? 'success' : ''}"><span style="width:${Math.round(v / max * 100)}%;${i === 0 ? 'background:var(--border)' : ''}"></span></div><span class="n">${v}</span>`; }).join('')}</div></div>
+        <div class="card"><h2 class="mb-sm">학습 단계 분포</h2><p class="small muted mb">단계가 오를수록 복습 간격이 길어지고, 5단계부터 마스터로 봅니다</p>
+          <div class="hbars">${['미학습', ...INTERVALS.map((_, i) => i + '단계')].map((lbl, i) => { const v = i === 0 ? unseen : boxes[i - 1]; const max = Math.max(1, unseen, ...boxes); return `<span class="lbl">${lbl}</span><div class="progress ${i > MASTER_BOX ? '' : 'quiet'}"><span style="width:${Math.round(v / max * 100)}%;${i === 0 ? 'background:var(--line-strong)' : ''}"></span></div><span class="n">${v}</span>`; }).join('')}</div></div>
+        <div class="card"><h2 class="mb-sm">복습 예정</h2>
+          <table class="table"><tr><th>날짜</th><th class="n">단어</th></tr>${upcoming.map((n, d) => `<tr><td>${d === 0 ? '오늘까지' : d === 1 ? '내일' : addDays(today(), d)}</td><td class="n">${n}</td></tr>`).join('')}</table></div>
       </div>
-      <div class="grid grid-2 mb">
-        <div class="card"><h2>최근 6주 학습 기록</h2>
-          <div class="heat">${days.map(d => { const l = S.log[d]; const n = l ? l.studied : 0; return `<div class="${n >= 60 ? 'h3' : n >= 25 ? 'h2' : n > 0 ? 'h1' : ''}" title="${d}: ${n}개"></div>`; }).join('')}</div>
-          <p class="small muted mt">오늘까지 총 ${Object.values(S.log).reduce((a, l) => a + l.studied, 0).toLocaleString()}회 학습</p></div>
-        <div class="card"><h2>복습 예정</h2>
-          <table class="table"><tr><th>날짜</th><th>단어 수</th></tr>${upcoming.map((n, d) => `<tr><td>${d === 0 ? '오늘 (누적)' : d === 1 ? '내일' : addDays(today(), d)}</td><td>${n}</td></tr>`).join('')}</table></div>
-      </div>
-      <div class="card mb"><h2>최근 퀴즈</h2>${S.quizHistory.length ? `<table class="table"><tr><th>날짜</th><th>유형</th><th>점수</th></tr>${S.quizHistory.slice(0, 10).map(h => `<tr><td>${h.d}</td><td>${esc(h.t)}</td><td>${h.s}/${h.n} (${Math.round(h.s / h.n * 100)}%)</td></tr>`).join('')}</table>` : '<p class="muted">아직 퀴즈 기록이 없습니다.</p>'}</div>
-      <div class="card"><h2>설정 · 데이터</h2>
-        <div class="row mb"><label>일일 목표 <select id="goal">${[20, 30, 50, 80, 100].map(n => `<option ${S.goal === n ? 'selected' : ''}>${n}</option>`).join('')}</select> 단어</label>
+      <div class="card mb"><h2 class="mb-sm">최근 퀴즈</h2>${S.quizHistory.length ? `<table class="table"><tr><th>날짜</th><th>유형</th><th class="n">정답</th><th class="n">점수</th></tr>${S.quizHistory.slice(0, 10).map(h => `<tr><td>${h.d}</td><td>${esc(h.t)}</td><td class="n">${h.s}/${h.n}</td><td class="n">${Math.round(h.s / h.n * 100)}</td></tr>`).join('')}</table>` : '<p class="muted">아직 퀴즈 기록이 없습니다</p>'}</div>
+      <div class="card settings"><h2 class="mb">설정과 데이터</h2>
+        <div class="row mb" style="gap:24px"><label>일일 목표 <select id="goal">${[20, 30, 50, 80, 100].map(n => `<option ${S.goal === n ? 'selected' : ''}>${n}</option>`).join('')}</select> 단어</label>
           <label><input type="checkbox" id="autoSpeak" ${S.settings.autoSpeak ? 'checked' : ''}> 플래시카드 자동 발음</label></div>
-        <div class="row"><button class="btn" id="export">⬇ 학습 기록 백업(JSON)</button><label class="btn">⬆ 복원 <input type="file" id="import" accept="application/json" hidden></label><button class="btn btn-danger" id="reset">전체 초기화</button></div>
+        <div class="btn-row"><button class="btn" id="export">${ic('download')}백업 파일 받기</button><label class="btn">${ic('upload')}복원 <input type="file" id="import" accept="application/json" hidden></label><button class="btn btn-ghost" id="reset" style="color:var(--negative)">${ic('rotate')}전체 초기화</button></div>
       </div>`);
-    $('#goal').onchange = e => { S.goal = parseInt(e.target.value, 10); save(); toast('목표가 저장되었습니다'); };
+    $('#goal').onchange = e => { S.goal = parseInt(e.target.value, 10); save(); toast('목표를 저장했습니다'); };
     $('#autoSpeak').onchange = e => { S.settings.autoSpeak = e.target.checked; save(); };
     $('#export').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(S)], { type: 'application/json' })); a.download = `toeic900-backup-${today()}.json`; a.click(); };
-    $('#import').onchange = e => { const f = e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { try { const d = JSON.parse(rd.result); if (!d.cards) throw 0; S = Object.assign(defaults(), d); save(); toast('복원되었습니다'); stats(); } catch (_) { toast('올바른 백업 파일이 아닙니다'); } }; rd.readAsText(f); };
-    $('#reset').onclick = () => { if (confirm('모든 학습 기록을 삭제할까요? 되돌릴 수 없습니다.')) { S = defaults(); save(); toast('초기화되었습니다'); stats(); } };
+    $('#import').onchange = e => { const f = e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { try { const d = JSON.parse(rd.result); if (!d.cards) throw 0; S = Object.assign(defaults(), d); save(); toast('복원했습니다'); stats(); } catch (_) { toast('백업 파일을 읽을 수 없습니다'); } }; rd.readAsText(f); };
+    $('#reset').onclick = () => { if (confirm('모든 학습 기록을 삭제합니다. 되돌릴 수 없습니다.')) { S = defaults(); save(); toast('초기화했습니다'); stats(); } };
   }
 
   // ---------- 전역 이벤트 (즐겨찾기, 발음) ----------
@@ -514,18 +514,20 @@
     const st = e.target.closest('[data-star]'); if (st) {
       const id = st.dataset.star; if (S.starred[id]) delete S.starred[id]; else S.starred[id] = 1; save();
       st.classList.toggle('on', !!S.starred[id]);
-      if (st.classList.contains('star-toggle')) st.textContent = S.starred[id] ? '★ 즐겨찾기 해제' : '☆ 즐겨찾기';
-      toast(S.starred[id] ? '즐겨찾기에 추가' : '즐겨찾기 해제');
+      if (st.classList.contains('star-toggle')) st.innerHTML = ic('star') + (S.starred[id] ? '즐겨찾기 해제' : '즐겨찾기');
+      toast(S.starred[id] ? '즐겨찾기에 추가했습니다' : '즐겨찾기에서 뺐습니다');
     }
   });
 
   // ---------- 테마 ----------
   const themeKey = 'toeic900_theme';
   function applyTheme(t) { if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme; }
+  function themeIsDark() { return (document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark'; }
   try { applyTheme(localStorage.getItem(themeKey)); } catch (e) { /* ignore */ }
+  function themeBtn() { $('#themeToggle').innerHTML = themeIsDark() ? '<svg class="i" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>' : ic('moon'); }
+  themeBtn();
   $('#themeToggle').onclick = () => {
-    const cur = document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-    const next = cur === 'dark' ? 'light' : 'dark'; applyTheme(next);
+    const next = themeIsDark() ? 'light' : 'dark'; applyTheme(next); themeBtn();
     try { localStorage.setItem(themeKey, next); } catch (e) { /* ignore */ }
   };
 
