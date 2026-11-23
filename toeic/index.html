@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TOEIC 900+ 단어 마스터</title>
-<meta name="description" content="토익 900점 이상을 목표로 하는 영단어 학습 웹앱. 1,400여 개의 빈출 어휘를 간격 반복(SRS) 플래시카드와 5가지 퀴즈로 학습합니다.">
+<title>TOEIC 단어 마스터</title>
+<meta name="description" content="토익 900점 어휘와 SQLD, ADsP 핵심 용어를 간격 반복 플래시카드와 퀴즈로 학습하는 웹앱">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Newsreader:opsz,wght@6..72,400;6..72,500&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -12,12 +12,13 @@
 </head>
 <body>
 <header class="topbar">
-  <a href="#/" class="brand"><span class="mark">9</span>TOEIC 단어 마스터</a>
+  <a href="#/" class="brand"><span class="mark" id="brandMark">T</span><span id="brandName">TOEIC 단어 마스터</span></a>
+  <div class="seg" id="courseSeg" role="group" aria-label="시험 선택"></div>
   <nav class="nav">
     <a href="#/" data-route="home"><svg class="i"><use href="#ic-home"/></svg><span>홈</span></a>
     <a href="#/study" data-route="study"><svg class="i"><use href="#ic-layers"/></svg><span>학습</span></a>
     <a href="#/quiz" data-route="quiz"><svg class="i"><use href="#ic-target"/></svg><span>퀴즈</span></a>
-    <a href="#/words" data-route="words"><svg class="i"><use href="#ic-book"/></svg><span>단어장</span></a>
+    <a href="#/words" data-route="words"><svg class="i"><use href="#ic-book"/></svg><span id="navWords">단어장</span></a>
     <a href="#/stats" data-route="stats"><svg class="i"><use href="#ic-chart"/></svg><span>통계</span></a>
   </nav>
   <button class="icon-btn" id="themeToggle" title="테마 전환" aria-label="테마 전환"><svg class="i"><use href="#ic-moon"/></svg></button>
@@ -62,6 +63,12 @@
   <symbol id="ic-bag" viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></symbol>
   <symbol id="ic-megaphone" viewBox="0 0 24 24"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></symbol>
   <symbol id="ic-award" viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></symbol>
+  <symbol id="ic-network" viewBox="0 0 24 24"><rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"/><path d="M12 12V8"/></symbol>
+  <symbol id="ic-table" viewBox="0 0 24 24"><path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></symbol>
+  <symbol id="ic-terminal" viewBox="0 0 24 24"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></symbol>
+  <symbol id="ic-database" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></symbol>
+  <symbol id="ic-clipboard" viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></symbol>
+  <symbol id="ic-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
   <symbol id="ic-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
 </svg>
 
@@ -79,6 +86,8 @@
 <script src="data/words_10.js"></script>
 <script src="data/words_11.js"></script>
 <script src="data/words_12.js"></script>
+<script src="data/sqld.js"></script>
+<script src="data/adsp.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
