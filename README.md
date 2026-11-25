@@ -55,6 +55,6 @@ static/
 
 ---
 
-## toeic/ — TOEIC · SQLD · ADsP 마스터
+## toeic/ — TOEIC · SQLD · ADsP · 컴활 2급 마스터
 
-같은 저장소의 `toeic/` 폴더에는 토익 900점 어휘와 SQLD, ADsP 핵심 용어를 학습하는 웹사이트(정적 HTML/JS)가 들어 있습니다. 자세한 내용은 [toeic/README.md](toeic/README.md)를 참고하세요.
+같은 저장소의 `toeic/` 폴더에는 토익 900점 어휘와 SQLD, ADsP, 컴활 2급 핵심 용어를 학습하는 웹사이트(정적 HTML/JS)가 들어 있습니다. 자세한 내용은 [toeic/README.md](toeic/README.md)를 참고하세요.

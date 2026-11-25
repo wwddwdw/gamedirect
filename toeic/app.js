@@ -1,4 +1,4 @@
-/* TOEIC · SQLD · ADsP 마스터 — 순수 JS 단일 페이지 앱 (localStorage 기반)
+/* TOEIC · SQLD · ADsP · 컴활 2급 마스터 — 순수 JS 단일 페이지 앱 (localStorage 기반)
    과정마다 데이터와 학습 기록을 따로 가진다. */
 (function () {
   'use strict';
@@ -16,6 +16,9 @@
     adsp: { key: 'adsp', short: 'ADsP', noun: '용어', book: '용어집', kind: 'term', store: 'toeic900_v1_adsp', cats: window.ADSP_DATA,
       daySize: 15, newBatch: 15, order: 'subject', orderLabel: '과목 순', levels: { 1: '기본', 2: '핵심', 3: '심화' },
       goalLabel: '합격 준비도', goals: [10, 15, 20, 30, 50], goal: 20, tts: false, blankMeta: '시험 포인트', msgs: CERT_MSGS },
+    comp2: { key: 'comp2', short: '컴활 2급', noun: '용어', book: '용어집', kind: 'term', store: 'toeic900_v1_comp2', cats: window.COMP2_DATA,
+      daySize: 20, newBatch: 20, order: 'subject', orderLabel: '과목 순', levels: { 1: '기본', 2: '핵심', 3: '심화' },
+      goalLabel: '합격 준비도', goals: [10, 20, 30, 40, 60], goal: 20, tts: false, blankMeta: '시험 포인트', msgs: CERT_MSGS },
   };
   const COURSE_KEY = 'toeic900_course';
 
@@ -451,7 +454,7 @@
       else document.querySelectorAll('.choice').forEach(b => b.onclick = () => check(b.dataset.c));
     }
     // 대소문자, 악센트(résumé), 공백과 구두점 차이는 무시하고 비교한다
-    function norm(s) { return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').normalize('NFC').toLowerCase().replace(/[\s\-_.,;:()'"*/·]/g, ''); }
+    function norm(s) { return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').normalize('NFC').toLowerCase().replace(/[\s\-_.,;:()'"*/·+]/g, ''); }
     function check(ans) {
       const q = qs[i]; if (q.done) return; q.done = true;
       const correct = norm(ans) === norm(q.answer);
